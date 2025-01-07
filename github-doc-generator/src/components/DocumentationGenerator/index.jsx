@@ -1,28 +1,26 @@
 import React, { useState } from 'react';
 import { Github, FileText, AlertCircle } from 'lucide-react';
 import { parseGitHubUrl, processRepository, generateReadme } from './documentationUtils';
+import MDEditor from '@uiw/react-md-editor';
 
 const DocumentationGenerator = () => {
     const [repoUrl, setRepoUrl] = useState('');
     const [documentation, setDocumentation] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const [editableContent, setEditableContent] = useState('');
 
     const handleGenerateDocumentation = async () => {
         setIsLoading(true);
         setError('');
         
         try {
-            // Parse GitHub URL to get owner and repo
             const { owner, repo } = parseGitHubUrl(repoUrl);
-            
-            // Process repository and generate documentation
             const { repoData, documentation } = await processRepository(owner, repo);
-            
-            // Generate final README content
             const readmeContent = generateReadme(repoData, documentation);
             
             setDocumentation(readmeContent);
+            setEditableContent(readmeContent);
         } catch (err) {
             setError(err.message);
             console.error('Documentation generation error:', err);
@@ -32,7 +30,7 @@ const DocumentationGenerator = () => {
     };
 
     const handleDownload = () => {
-        const blob = new Blob([documentation], { type: 'text/markdown' });
+        const blob = new Blob([editableContent], { type: 'text/markdown' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -42,7 +40,7 @@ const DocumentationGenerator = () => {
     };
 
     return (
-        <div className="max-w-4xl mx-auto p-6">
+        <div className="max-w-7xl mx-auto p-6">
             <div className="flex flex-col gap-6">
                 {/* Header */}
                 <div className="flex items-center gap-2 border-b pb-4">
@@ -89,11 +87,11 @@ const DocumentationGenerator = () => {
                     </div>
                 )}
 
-                {/* Documentation Output */}
+                {/* Documentation Output with Editor */}
                 {documentation && (
-                    <div className="mt-6 border rounded-lg overflow-hidden">
+                    <div className="mt-6">
                         <div className="flex justify-between items-center p-4 bg-gray-50 border-b">
-                            <h3 className="text-lg font-semibold">Generated README.md</h3>
+                            <h3 className="text-lg font-semibold">Edit README.md</h3>
                             <button
                                 onClick={handleDownload}
                                 className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
@@ -102,10 +100,14 @@ const DocumentationGenerator = () => {
                                 Download README.md
                             </button>
                         </div>
-                        <div className="p-4 bg-white">
-                            <pre className="whitespace-pre-wrap font-mono text-sm">
-                                {documentation}
-                            </pre>
+                        <div data-color-mode="light">
+                            <MDEditor
+                                value={editableContent}
+                                onChange={setEditableContent}
+                                preview="live"
+                                height={600}
+                                className="w-full"
+                            />
                         </div>
                     </div>
                 )}
