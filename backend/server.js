@@ -13,49 +13,88 @@ const openai = new OpenAI({
     apiKey: process.env.DEEPSEEK_API_KEY,
 });
 
-const DOCUMENTATION_PROMPT = `Generate a single, concise README.md for the entire project. The README must:
+const DOCUMENTATION_PROMPT = `Generate a comprehensive README.md for the GitHub repository following this exact structure:
 
-1. Start with project name and a 1-2 sentence description of what it does
-2. Use these exact sections in order:
-   - Installation (just the commands)
-   - Usage (one primary example of the most important functionality)
-   - Features (maximum 4 bullet points)
-   - Structure (1-2 sentences each for main files, max 4 files)
-   - Requirements
-   - License (one line)
+1. Start with the exact repository name as the main title
+
+2. Project Overview Section:
+   - Write 2-3 detailed sentences explaining what the project does
+   - Include its purpose, main functionality, and target users
+
+3. Technical Architecture Section:
+   - Write 1-2 sentences describing the overall technical structure
+   - Explain how the main components interact
+   - Mention key technologies or frameworks used
+
+4. File Documentation Section:
+   For each main code file in the repository:
+   - List the filename as a subheading
+   - Write 1-2 specific sentences describing what the file does and its role
+
+5. Installation & Usage Section:
+   - List exact commands needed to install and run the project
+   - Include any necessary configuration steps
+   - Show a brief example of the most common usage
+
+6. Requirements Section:
+   - List all dependencies and their minimum versions
+   - Include any system requirements
+   - Mention any external services needed
+
+7. License Section:
+   - State the project's license
 
 Rules:
-- Maximum 30 lines total
-- No badges or tables
-- No separate sections for individual files
-- Only show code examples for the main functionality
-- Each file description should be 1-2 sentences max
-- Focus on the project as a whole, not implementation details`;
+- Be specific to the actual repository content
+- Avoid placeholder text or generic descriptions
+- Include technical details where relevant
+- Focus on how the components work together
+- Use clear, direct language`;
 
 app.post('/api/generate-docs', async (req, res) => {
     try {
-        const { codeContent } = req.body;
+        const { repoContent, repoName, owner } = req.body;
         
+        if (!repoContent) {
+            return res.status(400).json({ 
+                error: 'Repository content is required' 
+            });
+        }
+
+        // Create the context prompt without relying on files array
+        const contextPrompt = `
+Repository: ${owner ? `${owner}/` : ''}${repoName || 'Unknown Repository'}
+
+Repository Content:
+${repoContent}`;
+
         const completion = await openai.chat.completions.create({
             messages: [
                 {
                     role: "system",
-                    content: "You are an expert at writing minimal, focused documentation. You avoid repetition and focus on the project as a unified whole."
+                    content: "You are an expert software documentation writer who specializes in creating detailed, accurate, and practical documentation. You analyze code thoroughly and explain technical concepts clearly while maintaining accuracy and specificity to the actual codebase."
                 },
                 {
                     role: "user",
-                    content: `${DOCUMENTATION_PROMPT}\n\nHere's the code to document: ${codeContent}`
+                    content: `${DOCUMENTATION_PROMPT}\n\nRepository Details:\n${contextPrompt}`
                 }
             ],
             model: "deepseek-chat",
-            temperature: 0.2,  // Even lower temperature for more consistent output
-            max_tokens: 400    // Further reduced token limit
+            temperature: 0.1,
+            max_tokens: 1000
         });
 
-        res.json({ documentation: completion.choices[0].message.content });
+        const documentation = completion.choices[0].message.content
+            .replace(/```md|```markdown|```/g, '')
+            .trim();
+
+        res.json({ documentation });
     } catch (error) {
         console.error('Error:', error);
-        res.status(500).json({ error: 'Failed to generate documentation', details: error.message });
+        res.status(500).json({ 
+            error: 'Failed to generate documentation', 
+            details: error.message 
+        });
     }
 });
 
