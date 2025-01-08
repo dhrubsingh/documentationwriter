@@ -2,8 +2,12 @@
 import axios from 'axios';
 
 const GITHUB_BASE_URL = 'https://api.github.com';
-const SERVER_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+// Force the use of the render.com URL in production
+const SERVER_URL = 'https://documentationwriter.onrender.com';
 const RAW_GITHUB_URL = 'https://raw.githubusercontent.com';
+
+// Add debugging
+console.log('API Server URL:', SERVER_URL);
 
 class APIError extends Error {
     constructor(message, statusCode) {
