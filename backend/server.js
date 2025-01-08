@@ -7,7 +7,8 @@ const axios = require('axios');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const openai = new OpenAI({
     baseURL: 'https://api.deepseek.com/v1',
@@ -92,10 +93,12 @@ ${repoContent}`;
             ],
             model: "deepseek-chat",
             temperature: 0.1,
-            max_tokens: 1000
+            max_tokens: 4000,
+            top_p: 1,
+            frequency_penalty: 0,
+            presence_penalty: 0
         });
 
-        // Don't strip markdown code blocks anymore
         const documentation = completion.choices[0].message.content.trim();
 
         res.json({ documentation });
