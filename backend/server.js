@@ -3,10 +3,12 @@ const express = require('express');
 const cors = require('cors');
 const OpenAI = require('openai');
 require('dotenv').config();
+const axios = require('axios');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const openai = new OpenAI({
     baseURL: 'https://api.deepseek.com/v1',
@@ -91,10 +93,12 @@ ${repoContent}`;
             ],
             model: "deepseek-chat",
             temperature: 0.1,
-            max_tokens: 1000
+            max_tokens: 4000,
+            top_p: 1,
+            frequency_penalty: 0,
+            presence_penalty: 0
         });
 
-        // Don't strip markdown code blocks anymore
         const documentation = completion.choices[0].message.content.trim();
 
         res.json({ documentation });
@@ -104,6 +108,44 @@ ${repoContent}`;
             error: 'Failed to generate documentation', 
             details: error.message 
         });
+    }
+});
+
+// GitHub OAuth configuration
+const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
+const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
+
+// GitHub OAuth callback endpoint
+app.get('/api/github/callback', async (req, res) => {
+    const code = req.query.code;
+    
+    if (!code) {
+        return res.status(400).json({ error: 'Code is required' });
+    }
+
+    try {
+        // Exchange code for access token
+        const tokenResponse = await axios.post(
+            'https://github.com/login/oauth/access_token',
+            {
+                client_id: GITHUB_CLIENT_ID,
+                client_secret: GITHUB_CLIENT_SECRET,
+                code: code
+            },
+            {
+                headers: {
+                    Accept: 'application/json'
+                }
+            }
+        );
+
+        const accessToken = tokenResponse.data.access_token;
+
+        // Redirect back to frontend with the token
+        res.redirect(`${process.env.FRONTEND_URL}?token=${accessToken}`);
+    } catch (error) {
+        console.error('GitHub OAuth error:', error);
+        res.status(500).json({ error: 'Failed to authenticate with GitHub' });
     }
 });
 
