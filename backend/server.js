@@ -7,8 +7,11 @@ const axios = require('axios');
 
 const app = express();
 
+// Update CORS to accept requests from Vercel frontend
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000'
+  origin: process.env.FRONTEND_URL || 'https://documentationwriter.vercel.app',
+  methods: ['GET', 'POST'],
+  credentials: true
 }));
 
 app.use(express.json({ limit: '50mb' }));
@@ -17,6 +20,11 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const openai = new OpenAI({
     baseURL: 'https://api.deepseek.com/v1',
     apiKey: process.env.DEEPSEEK_API_KEY,
+});
+
+// Add a simple health check endpoint
+app.get('/', (req, res) => {
+    res.json({ status: 'ok', message: 'Documentation Writer API is running' });
 });
 
 const DOCUMENTATION_PROMPT = `Generate a comprehensive README.md for the GitHub repository following this exact structure and formatting rules:
@@ -153,7 +161,8 @@ app.get('/api/github/callback', async (req, res) => {
     }
 });
 
+// Update port configuration
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
 });
