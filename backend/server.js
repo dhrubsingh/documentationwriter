@@ -7,12 +7,18 @@ const axios = require('axios');
 
 const app = express();
 
-// Update CORS to accept requests from Vercel frontend
+// More permissive CORS configuration
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'https://documentationwriter.vercel.app',
-  methods: ['GET', 'POST'],
-  credentials: true
+  origin: '*',  // Allow all origins for now
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    next();
+});
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -78,6 +84,15 @@ Formatting Rules:
 
 app.post('/api/generate-docs', async (req, res) => {
     try {
+        // First check if we have the API key
+        if (!process.env.DEEPSEEK_API_KEY) {
+            console.error('DeepSeek API key is not configured');
+            return res.status(500).json({
+                error: 'Server configuration error',
+                details: 'DeepSeek API key is not configured'
+            });
+        }
+
         const { repoContent, repoName, owner } = req.body;
         
         if (!repoContent) {
@@ -92,28 +107,38 @@ Repository: ${owner ? `${owner}/` : ''}${repoName || 'Unknown Repository'}
 Repository Content:
 ${repoContent}`;
 
-        const completion = await openai.chat.completions.create({
-            messages: [
-                {
-                    role: "system",
-                    content: "You are an expert software documentation writer who specializes in creating detailed, accurate, and practical documentation. Ensure all code blocks are properly formatted with language specifiers and triple backticks, and maintain consistent markdown formatting throughout the document."
-                },
-                {
-                    role: "user",
-                    content: `${DOCUMENTATION_PROMPT}\n\nRepository Details:\n${contextPrompt}`
-                }
-            ],
-            model: "deepseek-chat",
-            temperature: 0.1,
-            max_tokens: 4000,
-            top_p: 1,
-            frequency_penalty: 0,
-            presence_penalty: 0
-        });
+        try {
+            const completion = await openai.chat.completions.create({
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are an expert software documentation writer who specializes in creating detailed, accurate, and practical documentation. Ensure all code blocks are properly formatted with language specifiers and triple backticks, and maintain consistent markdown formatting throughout the document."
+                    },
+                    {
+                        role: "user",
+                        content: `${DOCUMENTATION_PROMPT}\n\nRepository Details:\n${contextPrompt}`
+                    }
+                ],
+                model: "deepseek-chat",
+                temperature: 0.1,
+                max_tokens: 4000,
+                top_p: 1,
+                frequency_penalty: 0,
+                presence_penalty: 0
+            });
 
-        const documentation = completion.choices[0].message.content.trim();
-
-        res.json({ documentation });
+            const documentation = completion.choices[0].message.content.trim();
+            res.json({ documentation });
+        } catch (apiError) {
+            console.error('DeepSeek API error:', apiError);
+            if (apiError.message.includes('Authentication')) {
+                return res.status(500).json({
+                    error: 'API Authentication Error',
+                    details: 'Failed to authenticate with the AI service. Please check API key configuration.'
+                });
+            }
+            throw apiError;
+        }
     } catch (error) {
         console.error('Error:', error);
         res.status(500).json({ 

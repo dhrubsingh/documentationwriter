@@ -16,6 +16,7 @@ class APIError extends Error {
 // Updated function to generate documentation
 export const generateDocumentation = async (owner, repo, repoContent) => {
     try {
+        console.log('Making request to:', `${SERVER_URL}/api/generate-docs`);
         const response = await fetch(`${SERVER_URL}/api/generate-docs`, {
             method: 'POST',
             headers: {
@@ -28,18 +29,23 @@ export const generateDocumentation = async (owner, repo, repoContent) => {
             })
         });
 
-        const data = await response.json();
-
         if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
             throw new APIError(
-                data.details || 'Failed to generate documentation',
+                errorData.details || `HTTP error! status: ${response.status}`,
                 response.status
             );
         }
 
+        const data = await response.json();
         return data.documentation;
     } catch (error) {
         console.error('Documentation generation error:', error);
+        console.error('Error details:', {
+            message: error.message,
+            status: error.status,
+            stack: error.stack
+        });
         if (error instanceof APIError) {
             throw error;
         }
