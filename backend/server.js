@@ -7,16 +7,31 @@ const axios = require('axios');
 
 const app = express();
 
-// More permissive CORS configuration
+// CORS configuration for Vercel frontend
 app.use(cors({
-  origin: '*',  // Allow all origins for now
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+    origin: ['https://documentationwriter.vercel.app', 'http://localhost:3000'],
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+    optionsSuccessStatus: 204
 }));
 
 // Request logging middleware
 app.use((req, res, next) => {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    // Log CORS-related headers
+    console.log('Origin:', req.headers.origin);
+    console.log('Access-Control-Request-Method:', req.headers['access-control-request-method']);
+    console.log('Access-Control-Request-Headers:', req.headers['access-control-request-headers']);
+    next();
+});
+
+// Add CORS headers explicitly for all responses
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
     next();
 });
 
