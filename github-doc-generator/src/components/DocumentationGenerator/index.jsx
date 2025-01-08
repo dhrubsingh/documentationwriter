@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Github, FileText, AlertCircle } from 'lucide-react';
+import { Github, GitPullRequest, AlertCircle } from 'lucide-react';
 import { parseGitHubUrl, processRepository, generateReadme } from './documentationUtils';
+import { createPullRequest } from '../../config/api';
 import MDEditor from '@uiw/react-md-editor';
 
 const DocumentationGenerator = () => {
@@ -9,10 +10,12 @@ const DocumentationGenerator = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [editableContent, setEditableContent] = useState('');
+    const [prUrl, setPrUrl] = useState('');
 
     const handleGenerateDocumentation = async () => {
         setIsLoading(true);
         setError('');
+        setPrUrl('');
         
         try {
             const { owner, repo } = parseGitHubUrl(repoUrl);
@@ -29,14 +32,20 @@ const DocumentationGenerator = () => {
         }
     };
 
-    const handleDownload = () => {
-        const blob = new Blob([editableContent], { type: 'text/markdown' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'README.md';
-        a.click();
-        URL.revokeObjectURL(url);
+    const handleSubmitPR = async () => {
+        setIsLoading(true);
+        setError('');
+
+        try {
+            const { owner, repo } = parseGitHubUrl(repoUrl);
+            const prUrl = await createPullRequest(owner, repo, editableContent);
+            setPrUrl(prUrl);
+        } catch (err) {
+            setError(err.message);
+            console.error('PR submission error:', err);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -77,6 +86,22 @@ const DocumentationGenerator = () => {
                     </div>
                 )}
 
+                {/* PR Success Message */}
+                {prUrl && (
+                    <div className="flex items-center gap-2 p-4 text-green-600 bg-green-50 rounded">
+                        <GitPullRequest className="h-5 w-5" />
+                        <span>Pull request created successfully! </span>
+                        <a 
+                            href={prUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-500 hover:underline"
+                        >
+                            View PR
+                        </a>
+                    </div>
+                )}
+
                 {/* Loading State */}
                 {isLoading && (
                     <div className="text-center py-8">
@@ -93,11 +118,15 @@ const DocumentationGenerator = () => {
                         <div className="flex justify-between items-center p-4 bg-gray-50 border-b">
                             <h3 className="text-lg font-semibold">Edit README.md</h3>
                             <button
-                                onClick={handleDownload}
-                                className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                                onClick={handleSubmitPR}
+                                disabled={isLoading}
+                                className={`flex items-center gap-2 px-4 py-2 rounded transition-colors
+                                    ${isLoading 
+                                        ? 'bg-gray-400 cursor-not-allowed' 
+                                        : 'bg-green-500 hover:bg-green-600'} text-white`}
                             >
-                                <FileText className="h-4 w-4" />
-                                Download README.md
+                                <GitPullRequest className="h-4 w-4" />
+                                Submit PR
                             </button>
                         </div>
                         <div data-color-mode="light">
